@@ -1,0 +1,35 @@
+# Environment variables (NEVER COMMIT SECRETS)
+.env
+.env.local
+.env.*.local
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python & Pytest artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Database files
+*.db
+*.sqlite3
+swasthiq_eod.db
+swasthiq.db*
+
+# Node / React build artifacts
+node_modules/
+dist/
+build/
+.DS_Store
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
