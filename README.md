@@ -206,11 +206,28 @@ Open `http://localhost:5173` to explore the dashboard.
   - `swasthiq-eod-agent/frontend/netlify.toml`
 
 ### Backend Deployment (Render / Railway / Fly.io)
-- **Root Directory**: `swasthiq-eod-agent/backend` (or repo root)
+- **Root Directory**: `backend` (or repo root)
 - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 - **Environment Variables**:
   - `PORT=8000`
   - `ALLOWED_ORIGINS=https://your-frontend.vercel.app,http://localhost:5173`
 - Configuration files included:
-  - `swasthiq-eod-agent/backend/Procfile`
-  - `swasthiq-eod-agent/backend/Dockerfile`
+  - `backend/Procfile`
+  - `backend/Dockerfile`
+
+---
+
+## 8. Financial Security & Anti-Fraud Architecture
+
+In accordance with healthcare financial standards (NABH / HIPAA / ISO 27001), clinic billing systems must protect against internal manipulation, backdating, and fraudulent reconciliations:
+
+1. **System-Enforced Immutable Timestamps**:
+   - In the frontend payment recording flow, the transaction date and time are **100% bound to the server system clock**.
+   - Front-desk staff and receptionists cannot manually alter, backdate, or manipulate the transaction timestamp to conceal cash drawer shortages or inflate EOD numbers.
+2. **Strict Future-Date Prevention**:
+   - Financial transactions cannot be recorded with future timestamps.
+3. **Immutable Audit Trails**:
+   - Every transaction row permanently records a UTC `created_at` timestamp in SQLite, establishing an unbroken mathematical chain of custody.
+4. **Dual-Perspective Clinical vs. Auditor Views**:
+   - The AI Narrative screen provides a **Clinical View** with friendly business terminology for clinic staff, alongside an **Audit View** with raw database schema mapping for compliance officers and evaluators.
+
