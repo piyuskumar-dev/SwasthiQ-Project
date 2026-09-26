@@ -85,6 +85,8 @@ class TransactionRow(BaseModel):
     amount_paid_paise: int = Field(..., description="Amount collected or refunded in integer paise")
     discount_paise: int = Field(default=0, ge=0, description="Discount given in integer paise (>= 0)")
     is_refund: bool = Field(default=False, description="Flag indicating if this transaction is a refund")
+    created_at: Optional[datetime] = Field(None, description="Immutable system audit timestamp when record was entered")
+    is_audit_override: bool = Field(default=False, description="Flag indicating if timestamp was overridden via supervisor audit")
 
     @model_validator(mode="before")
     @classmethod

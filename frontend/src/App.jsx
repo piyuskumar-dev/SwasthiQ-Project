@@ -45,13 +45,17 @@ export default function App() {
   const [isSeeding, setIsSeeding] = useState(false);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
 
-  // 2. Synchronize Dark Mode Class on Root
+  // 2. Synchronize Dark Mode Class on Root and Body
   useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
     if (darkMode) {
-      document.documentElement.classList.add('dark');
+      root.classList.add('dark');
+      if (body) body.classList.add('dark');
       localStorage.setItem('swasthiq_theme', 'dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark');
+      if (body) body.classList.remove('dark');
       localStorage.setItem('swasthiq_theme', 'light');
     }
   }, [darkMode]);

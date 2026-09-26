@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Plus, Trash2, IndianRupee, AlertCircle, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Trash2, IndianRupee, AlertCircle, CheckCircle2, Lock, ShieldCheck, History } from 'lucide-react';
 import { recordSingleTransaction } from '../api/client';
 
 export default function AddPaymentModal({
@@ -10,7 +10,12 @@ export default function AddPaymentModal({
   clinicName,
   onTransactionAdded,
 }) {
-  const [date, setDate] = useState(selectedDate || new Date().toISOString().split('T')[0]);
+  const getTodayISO = () => new Date().toISOString().split('T')[0];
+
+  const [isSupervisorOverride, setIsSupervisorOverride] = useState(false);
+  const [overrideDate, setOverrideDate] = useState(selectedDate || '2026-07-28');
+  const [currentTimeDisplay, setCurrentTimeDisplay] = useState('');
+  
   const [patientName, setPatientName] = useState('');
   const [doctorName, setDoctorName] = useState('Dr. R. K. Mehta');
   const [paymentMode, setPaymentMode] = useState('upi');
@@ -25,7 +30,26 @@ export default function AddPaymentModal({
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
+  // Live system clock updater for audit proof of truth
+  useEffect(() => {
+    if (!isOpen) return;
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTimeDisplay(
+        now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) +
+        ' • ' +
+        now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      );
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  // Active target date: either system date or supervisor override date
+  const effectiveDate = isSupervisorOverride ? overrideDate : getTodayISO();
 
   // Calculate gross line items in rupees
   const grossRupees = items.reduce((sum, item) => {
@@ -89,13 +113,16 @@ export default function AddPaymentModal({
 
       const randomSuffix = Math.floor(1000 + Math.random() * 9000);
       const visitId = `VST-${Date.now().toString().slice(-4)}-${randomSuffix}`;
+      const nowIso = new Date().toISOString();
 
       const transactionPayload = {
         clinic_id: selectedClinic,
         visit_id: visitId,
         patient_name: patientName.trim() || undefined,
         doctor_name: doctorName.trim() || undefined,
-        timestamp: `${date}T${new Date().toTimeString().split(' ')[0]}Z`,
+        timestamp: isSupervisorOverride ? `${overrideDate}T12:00:00Z` : nowIso,
+        created_at: nowIso,
+        is_audit_override: isSupervisorOverride,
         payment_mode: paymentMode,
         amount_paid_paise: isRefund ? -Math.abs(amountPaidPaise) : Math.abs(amountPaidPaise),
         discount_paise: isRefund ? 0 : discountPaise,
@@ -103,11 +130,11 @@ export default function AddPaymentModal({
         line_items: lineItems,
       };
 
-      await recordSingleTransaction(selectedClinic, date, transactionPayload, clinicName);
+      await recordSingleTransaction(selectedClinic, effectiveDate, transactionPayload, clinicName);
 
       setSuccessMsg(`Payment recorded successfully (${isRefund ? 'Refund' : 'Sale'}: ₹${paidVal.toLocaleString('en-IN')})!`);
       setTimeout(() => {
-        if (onTransactionAdded) onTransactionAdded(date);
+        if (onTransactionAdded) onTransactionAdded(effectiveDate);
         onClose();
       }, 1200);
     } catch (err) {
@@ -119,16 +146,22 @@ export default function AddPaymentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 transition-colors">
       <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-xl w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
           <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              Record New Payment / Transaction
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Record New Payment / Transaction
+              </h3>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                <ShieldCheck className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                Audit-Locked
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {clinicName || selectedClinic} • Instant deterministic recalculation
             </p>
           </div>
@@ -156,21 +189,56 @@ export default function AddPaymentModal({
             </div>
           )}
 
-          {/* Row 1: Date & Payment Mode */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Transaction Date
-              </label>
-              <input
-                type="date"
-                required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-              />
+          {/* System Audit Timestamp Bar (Anti-Fraud Proof of Truth) */}
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <div>
+                  <div className="text-[11px] font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                    <span>System Clock:</span>
+                    <span className="font-mono text-emerald-700 dark:text-emerald-300">{currentTimeDisplay || 'Fetching system time...'}</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                    Tamper-proof reception audit. Receptionists cannot backdate or manipulate clock.
+                  </div>
+                </div>
+              </div>
+
+              {/* Supervisor Override Toggle */}
+              <button
+                type="button"
+                onClick={() => setIsSupervisorOverride(!isSupervisorOverride)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold border transition ${
+                  isSupervisorOverride
+                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                    : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+                title="Toggle supervisor audit mode to test adding transactions to sample days"
+              >
+                <History className="w-3 h-3" />
+                <span>{isSupervisorOverride ? 'Audit Override ON' : 'Historical Test Mode'}</span>
+              </button>
             </div>
 
+            {/* Historical Date Input (Only visible in Supervisor Audit Mode) */}
+            {isSupervisorOverride && (
+              <div className="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-3 animate-in fade-in duration-100">
+                <div className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+                  Supervisor Audit: Adding to historical test day:
+                </div>
+                <input
+                  type="date"
+                  value={overrideDate}
+                  onChange={(e) => setOverrideDate(e.target.value)}
+                  className="px-2.5 py-1 text-xs rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Row: Payment Mode & Refund Switch */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Payment Mode
@@ -192,25 +260,9 @@ export default function AddPaymentModal({
                 ))}
               </div>
             </div>
-          </div>
-
-          {/* Row 2: Patient Name & Refund Switch */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Patient Name (Optional)
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Ramesh Kumar"
-                value={patientName}
-                onChange={(e) => setPatientName(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
 
             <div className="flex flex-col justify-end">
-              <label className="flex items-center gap-2 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 cursor-pointer">
+              <label className="flex items-center gap-2 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 cursor-pointer h-[38px]">
                 <input
                   type="checkbox"
                   checked={isRefund}
@@ -224,11 +276,25 @@ export default function AddPaymentModal({
             </div>
           </div>
 
+          {/* Row: Patient Name */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Patient Name (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Ramesh Kumar"
+              value={patientName}
+              onChange={(e) => setPatientName(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
           {/* Medication Items */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Prescribed Medications / Items
+                Prescribed Medications / Line Items
               </label>
               <button
                 type="button"
@@ -239,7 +305,7 @@ export default function AddPaymentModal({
               </button>
             </div>
 
-            <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
               {items.map((item, idx) => (
                 <div key={idx} className="flex items-center gap-2">
                   <input

@@ -354,7 +354,8 @@ def test_api_on_the_fly_narrative():
 
 def test_record_single_transaction_api():
     """Tests POST /api/clinics/{clinic_id}/transactions appends and recalculates correctly."""
-    clinic_id = "CLN-TEST-TX-001"
+    import uuid
+    clinic_id = f"CLN-TX-{uuid.uuid4().hex[:8]}"
     date_str = "2026-07-29"
 
     tx_payload = {

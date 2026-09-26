@@ -3,8 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  html.dark {
+    color-scheme: dark;
+  }
   body {
-    @apply bg-[#f8fafc] text-slate-800 antialiased selection:bg-blue-100 selection:text-blue-900;
+    @apply bg-[#f8fafc] text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased selection:bg-blue-100 selection:text-blue-900 dark:selection:bg-blue-900 dark:selection:text-blue-100;
   }
 }
 
