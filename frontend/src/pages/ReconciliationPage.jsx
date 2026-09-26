@@ -204,6 +204,116 @@ export default function ReconciliationPage({ report, isLoading }) {
           </table>
         </div>
       </div>
+
+      {/* Recorded Payment Transactions & Patient Ledger */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+              Recorded Payment Transactions & Patient Ledger
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Complete transaction log for this clinic date ({report?.raw_records?.length || 0} recorded) • Preserved and reconciled
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Audit Ledger Active
+          </span>
+        </div>
+
+        {(!report?.raw_records || report.raw_records.length === 0) ? (
+          <div className="p-8 text-center text-slate-400 dark:text-slate-500 text-xs">
+            No payment transactions recorded for this clinic date yet. Use "Add Payment" to record a new transaction.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-3.5">Visit / Bill ID</th>
+                  <th className="px-6 py-3.5">Time</th>
+                  <th className="px-6 py-3.5">Patient / Doctor</th>
+                  <th className="px-6 py-3.5">Medications / Items</th>
+                  <th className="px-6 py-3.5">Payment Mode</th>
+                  <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                {[...report.raw_records].reverse().map((r, idx) => {
+                  const isRefund = Boolean(r.is_refund);
+                  const mode = (r.payment_mode || 'upi').toLowerCase();
+                  const paidPaise = Math.abs(r.amount_paid_paise || 0);
+                  const itemsList = r.line_items || [];
+                  const itemsSummary = itemsList.length > 0
+                    ? itemsList.map((it) => `${it.drug_name || 'Item'} (${it.qty || 1})`).join(', ')
+                    : 'Consultation / Service';
+
+                  let timeStr = '—';
+                  if (r.timestamp) {
+                    try {
+                      const d = new Date(r.timestamp);
+                      if (!isNaN(d.getTime())) {
+                        timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                      }
+                    } catch (_) {}
+                  }
+
+                  return (
+                    <tr key={r.visit_id || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition">
+                      <td className="px-6 py-3.5 font-mono text-xs font-semibold text-slate-900 dark:text-white">
+                        {r.visit_id || `TX-${idx + 1}`}
+                      </td>
+                      <td className="px-6 py-3.5 text-xs text-slate-500 dark:text-slate-400">
+                        {timeStr}
+                      </td>
+                      <td className="px-6 py-3.5">
+                        <div className="font-medium text-slate-900 dark:text-white text-xs">
+                          {r.patient_name || 'Patient'}
+                        </div>
+                        <div className="text-[11px] text-slate-400 dark:text-slate-500">
+                          {r.doctor_name || r.doctor_id || 'Dr. Mehta'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-3.5 text-xs text-slate-600 dark:text-slate-300 max-w-[220px] truncate" title={itemsSummary}>
+                        {itemsSummary}
+                      </td>
+                      <td className="px-6 py-3.5">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider ${
+                          mode === 'upi'
+                            ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800'
+                            : mode === 'cash'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800'
+                            : 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800'
+                        }`}>
+                          {mode}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3.5">
+                        {isRefund ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800">
+                            Refund
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            Completed
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3.5 text-right font-bold text-xs">
+                        <span className={isRefund ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}>
+                          {isRefund ? `-${formatRupees(paidPaise)}` : formatRupees(paidPaise)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

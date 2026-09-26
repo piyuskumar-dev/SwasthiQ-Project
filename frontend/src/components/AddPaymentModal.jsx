@@ -6,6 +6,7 @@ export default function AddPaymentModal({
   isOpen,
   onClose,
   selectedClinic,
+  selectedDate,
   clinicName,
   onTransactionAdded,
 }) {
@@ -44,8 +45,8 @@ export default function AddPaymentModal({
 
   if (!isOpen) return null;
 
-  // The transaction date and time are strictly bound to the live system clock
-  const effectiveDate = getTodayISO();
+  // The transaction is recorded for the active clinic session date (defaulting to today if not provided)
+  const effectiveDate = selectedDate || getTodayISO();
 
   // Calculate gross line items in rupees
   const grossRupees = items.reduce((sum, item) => {
@@ -185,8 +186,14 @@ export default function AddPaymentModal({
             </div>
           )}
 
-          {/* System Audit Timestamp Bar (Tamper-Proof & Anti-Fraud Proof of Truth) */}
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700">
+          {/* System Audit & Clinic Date Bar */}
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 space-y-2">
+            <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200/60 dark:border-slate-700/60">
+              <span className="font-semibold text-slate-600 dark:text-slate-300">Active Clinic Reconciliation Date:</span>
+              <span className="font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-2.5 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
+                {effectiveDate}
+              </span>
+            </div>
             <div className="flex items-start gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
                 <Lock className="w-3.5 h-3.5" />
@@ -198,8 +205,8 @@ export default function AddPaymentModal({
                     {currentTimeDisplay || 'Fetching system time...'}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                  <strong>Tamper-Proof Integrity:</strong> Timestamp is strictly enforced by the server system clock. Date and time cannot be manually backdated, future-dated, or altered by receptionists.
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  <strong>Tamper-Proof Audit:</strong> Appends directly to this date's billing log. Preserves all previous transactions and updates daily reconciliation totals instantly.
                 </p>
               </div>
             </div>

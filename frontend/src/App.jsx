@@ -103,12 +103,12 @@ export default function App() {
   }, []);
 
   // 5. Fetch report and narrative when clinic or date changes
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (targetClinic = selectedClinic, targetDate = selectedDate) => {
     setIsLoading(true);
     try {
       const [rep, nar] = await Promise.all([
-        fetchEODReport(selectedClinic, selectedDate),
-        fetchNarrative(selectedClinic, selectedDate),
+        fetchEODReport(targetClinic, targetDate),
+        fetchNarrative(targetClinic, targetDate),
       ]);
       setReport(rep);
       setNarrativeData(nar);
@@ -120,8 +120,8 @@ export default function App() {
   }, [selectedClinic, selectedDate]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadData(selectedClinic, selectedDate);
+  }, [loadData, selectedClinic, selectedDate]);
 
   // 6. Handle seeding sample data into backend
   const handleSeedData = async () => {
@@ -134,7 +134,7 @@ export default function App() {
       const dates = await fetchClinicDates(selectedClinic);
       setAvailableDates(dates);
 
-      await loadData();
+      await loadData(selectedClinic, selectedDate);
     } catch (err) {
       console.error('Seeding failed:', err);
     } finally {
@@ -144,12 +144,11 @@ export default function App() {
 
   // 7. Handle transaction added from modal
   const handleTransactionAdded = async (newDate) => {
+    const targetDate = newDate || selectedDate;
     const dates = await fetchClinicDates(selectedClinic);
     setAvailableDates(dates);
-    if (newDate) {
-      setSelectedDate(newDate);
-    }
-    await loadData();
+    setSelectedDate(targetDate);
+    await loadData(selectedClinic, targetDate);
   };
 
   const getPageTitle = () => {
