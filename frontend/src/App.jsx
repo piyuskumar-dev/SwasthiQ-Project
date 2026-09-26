@@ -11,7 +11,6 @@ import {
   fetchClinicDates,
   fetchEODReport,
   fetchNarrative,
-  seedAllSampleDays,
 } from './api/client';
 
 export default function App() {
@@ -42,7 +41,6 @@ export default function App() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isBackendOnline, setIsBackendOnline] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
 
   // 2. Synchronize Dark Mode Class on Root and Body
@@ -123,24 +121,7 @@ export default function App() {
     loadData(selectedClinic, selectedDate);
   }, [loadData, selectedClinic, selectedDate]);
 
-  // 6. Handle seeding sample data into backend
-  const handleSeedData = async () => {
-    setIsSeeding(true);
-    try {
-      await seedAllSampleDays(selectedClinic);
-      const isOnline = await checkBackendHealth();
-      setIsBackendOnline(isOnline);
 
-      const dates = await fetchClinicDates(selectedClinic);
-      setAvailableDates(dates);
-
-      await loadData(selectedClinic, selectedDate);
-    } catch (err) {
-      console.error('Seeding failed:', err);
-    } finally {
-      setIsSeeding(false);
-    }
-  };
 
   // 7. Handle transaction added from modal
   const handleTransactionAdded = async (newDate) => {
@@ -174,8 +155,6 @@ export default function App() {
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
         isBackendOnline={isBackendOnline}
-        onSeedData={handleSeedData}
-        isSeeding={isSeeding}
         onOpenAddPayment={() => setIsAddPaymentOpen(true)}
       />
 
