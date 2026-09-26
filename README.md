@@ -260,5 +260,27 @@ To bridge digital EOD reconciliation with physical clinic operations, SwasthiQ p
 3. **Printer & PDF Compatibility**:
    - Formatted with `@page` and `@media print` CSS for both 80mm thermal receipt printers and standard A4 office printers with zero UI clutter.
 
+---
+
+## 10. Real-World Clinical Billing Edge Cases & Versatility
+
+The system was engineered to handle complex, real-world Indian healthcare and pharmacy billing scenarios rather than simplistic textbook happy paths:
+
+1. **Dual-Mode Discount Engine (Flat ₹ vs. Pharmacy %)**:
+   - **Real-World Pharmacy Practices**: Retail clinic pharmacies routinely offer standard percentage discounts (e.g., 10% or 15% off on chronic medicines or generic alternatives), alongside ad-hoc flat rupee discounts (e.g., ₹50 waiver for elderly or low-income patients).
+   - **Seamless UI Toggle & Presets**: Staff can instantly switch between **`₹ Flat`** and **`% Percent`** discounting, with one-click standard presets (`5%`, `10%`, `15%`, `20%`).
+   - **Paise Precision Guarantee**: While receptionists input intuitive percentages, the engine dynamically calculates the exact discount in integer paise (`Math.round(discount_rupees * 100)`), preventing fractional floating-point drift across daily register totals.
+
+2. **Partial Payments & Outstanding Arrears**:
+   - In OPD settings, patients frequently make partial payments (e.g., paying ₹30 on a ₹40 bill, leaving ₹10 pending). The engine accurately computes `outstanding_paise = max(0, billed - collected)`, increments `pending_visits_count`, and reflects this in payment mode breakdowns.
+
+3. **All-Refund & Zero-Activity Clinic Days**:
+   - **Returns-Only Days**: Demonstrated in dataset `2026-07-25`, where all 3 transactions are prescription returns disbursed to patients. The system correctly computes negative in-hand register cash without crashing or corrupting reconciliation math.
+   - **Zero-Visit Holidays**: Demonstrated in dataset `2026-07-26`, where clinic closure results in empty logs. The system gracefully returns clean zeros with zero division errors in percentage calculations.
+
+4. **Resilient Ingestion with Row-Level Isolation**:
+   - Corrupted or malformed rows (e.g., negative discounts, invalid payment modes) in multi-thousand-row hospital logs are quarantined with visit ID and error reasons rather than terminating the pipeline with an unhandled 500 error. Valid records are reconciled deterministically.
+
+
 
 

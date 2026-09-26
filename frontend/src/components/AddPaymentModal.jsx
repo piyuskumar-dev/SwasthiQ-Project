@@ -18,7 +18,9 @@ export default function AddPaymentModal({
   const [doctorName, setDoctorName] = useState('Dr. R. K. Mehta');
   const [paymentMode, setPaymentMode] = useState('upi');
   const [isRefund, setIsRefund] = useState(false);
+  const [discountType, setDiscountType] = useState('flat'); // 'flat' | 'percentage'
   const [discountRupees, setDiscountRupees] = useState('0');
+  const [discountPercent, setDiscountPercent] = useState('10');
   const [amountPaidRupees, setAmountPaidRupees] = useState('');
   const [items, setItems] = useState([
     { drug_name: '', qty: 1, unit_price_rupees: '' },
@@ -65,7 +67,12 @@ export default function AddPaymentModal({
     return sum + (qty * price);
   }, 0);
 
-  const discount = parseFloat(discountRupees) || 0;
+  // Compute discount based on flat amount or percentage
+  const calculatedPercentDiscount = Math.round((grossRupees * ((parseFloat(discountPercent) || 0) / 100)) * 100) / 100;
+  const discount = discountType === 'percentage'
+    ? calculatedPercentDiscount
+    : (parseFloat(discountRupees) || 0);
+
   const netBilledRupees = Math.max(0, grossRupees - discount);
 
   // Auto fill amount paid if user hasn't explicitly set it
@@ -401,19 +408,90 @@ export default function AddPaymentModal({
             )}
 
             {!isRefund && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500 dark:text-slate-400">Discount (₹):</span>
-                <div className="relative w-24">
-                  <span className="absolute left-2 top-1 text-xs text-slate-400">₹</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={discountRupees}
-                    onChange={(e) => setDiscountRupees(e.target.value)}
-                    className="w-full pl-5 pr-2 py-0.5 text-xs rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-right font-medium"
-                  />
+              <div className="space-y-1.5 py-1">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Discount Type:</span>
+                    <div className="inline-flex rounded-lg p-0.5 bg-slate-200/80 dark:bg-slate-700/80 border border-slate-300/40 dark:border-slate-600/40">
+                      <button
+                        type="button"
+                        onClick={() => setDiscountType('flat')}
+                        className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition ${
+                          discountType === 'flat'
+                            ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-2xs'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        ₹ Flat
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDiscountType('percentage')}
+                        className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition ${
+                          discountType === 'percentage'
+                            ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-2xs'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        % Percent
+                      </button>
+                    </div>
+                  </div>
+
+                  {discountType === 'flat' ? (
+                    <div className="relative w-24">
+                      <span className="absolute left-2 top-1 text-xs text-slate-400">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={discountRupees}
+                        onChange={(e) => setDiscountRupees(e.target.value)}
+                        className="w-full pl-5 pr-2 py-0.5 text-xs rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-right font-medium"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        (-₹{discount.toLocaleString('en-IN')})
+                      </span>
+                      <div className="relative w-20">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="any"
+                          value={discountPercent}
+                          onChange={(e) => setDiscountPercent(e.target.value)}
+                          className="w-full pr-5 pl-2 py-0.5 text-xs rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-right font-medium"
+                        />
+                        <span className="absolute right-2 top-1 text-xs text-slate-400 font-bold">%</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {discountType === 'percentage' && (
+                  <div className="flex items-center justify-between text-[11px] pt-0.5">
+                    <span className="text-slate-400 dark:text-slate-500">Quick Pharmacy Presets:</span>
+                    <div className="flex items-center gap-1">
+                      {['5', '10', '15', '20'].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => setDiscountPercent(pct)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border transition ${
+                            discountPercent === pct
+                              ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          {pct}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
