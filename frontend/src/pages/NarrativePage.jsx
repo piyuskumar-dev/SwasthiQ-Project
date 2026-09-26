@@ -21,6 +21,7 @@ export default function NarrativePage({ narrativeData, isLoading }) {
   const tracedFigures = narrativeData?.traced_figures || [];
   const isGrounded = narrativeData?.is_grounded ?? true;
   const untracedNumbers = narrativeData?.untraced_numbers || [];
+  const generatedBy = narrativeData?.generated_by || 'deterministic-grounded-engine';
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message);
@@ -54,10 +55,13 @@ export default function NarrativePage({ narrativeData, isLoading }) {
     <div className="space-y-6">
       {/* Top Banner Tag */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300">
             <Sparkles className="w-3.5 h-3.5" />
             AI WHATSAPP BRIEFING
+          </span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+            {generatedBy.includes('gemini') ? 'Gemini 2.5 Flash' : 'Grounded Narrative Engine'}
           </span>
           <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
             Strictly grounded in deterministic report

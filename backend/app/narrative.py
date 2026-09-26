@@ -28,6 +28,7 @@ class NarrativeResponse(BaseModel):
     traced_figures: List[TracedFigure]
     is_grounded: bool
     untraced_numbers: List[str] = Field(default_factory=list)
+    generated_by: str = Field(default="deterministic-grounded-engine", description="Engine used to generate briefing")
 
 
 def format_rupees(paise: int) -> str:
@@ -307,6 +308,51 @@ def validate_grounding(
     return is_grounded, untraced
 
 
+def generate_gemini_narrative(
+    reconciliation: Dict[str, Any],
+    analytics: Dict[str, Any],
+    clinic_name: str,
+    date_str: str,
+    api_key: str,
+    model: str = "gemini-2.5-flash",
+) -> Optional[str]:
+    """
+    Calls Google Gemini REST API to dynamically generate a natural language
+    WhatsApp summary grounded strictly in the deterministic data.
+    """
+    try:
+        import httpx
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        prompt = (
+            f"{build_system_prompt()}\n\n"
+            f"CLINIC NAME: {clinic_name}\n"
+            f"RECONCILIATION DATE: {date_str}\n"
+            f"GROUND TRUTH RECONCILIATION JSON:\n{json.dumps(reconciliation, indent=2)}\n\n"
+            f"GROUND TRUTH ANALYTICS JSON:\n{json.dumps(analytics, indent=2)}\n\n"
+            f"Generate the WhatsApp EOD briefing now following the exact grounding rules."
+        )
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": 600,
+            },
+        }
+        res = httpx.post(url, json=payload, timeout=12.0)
+        if res.status_code == 200:
+            data = res.json()
+            candidates = data.get("candidates", [])
+            if candidates:
+                text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                if text and text.strip():
+                    return text.strip()
+        else:
+            print(f"Gemini API returned status {res.status_code}: {res.text}")
+    except Exception as err:
+        print(f"Gemini API call exception: {err}")
+    return None
+
+
 def generate_narrative_summary(
     reconciliation: Dict[str, Any],
     analytics: Dict[str, Any],
@@ -315,13 +361,38 @@ def generate_narrative_summary(
 ) -> NarrativeResponse:
     """
     Main generator producing the complete narrative report.
+    Supports hybrid execution: calls Gemini LLM when GEMINI_API_KEY is configured,
+    audits the output via mathematical guardrails, and safely falls back to the
+    deterministic grounded engine whenever offline or unconfigured.
     """
-    message = generate_grounded_template(
-        reconciliation=reconciliation,
-        analytics=analytics,
-        clinic_name=clinic_name,
-        date_str=date_str,
-    )
+    api_key = os.getenv("GEMINI_API_KEY")
+    model = os.getenv("LLM_MODEL", "gemini-2.5-flash")
+    
+    message = None
+    engine_used = "deterministic-grounded-engine"
+
+    if api_key:
+        candidate_msg = generate_gemini_narrative(
+            reconciliation=reconciliation,
+            analytics=analytics,
+            clinic_name=clinic_name,
+            date_str=date_str,
+            api_key=api_key,
+            model=model,
+        )
+        if candidate_msg:
+            is_valid, _ = validate_grounding(candidate_msg, reconciliation, analytics)
+            if is_valid:
+                message = candidate_msg
+                engine_used = f"gemini-llm ({model})"
+
+    if not message:
+        message = generate_grounded_template(
+            reconciliation=reconciliation,
+            analytics=analytics,
+            clinic_name=clinic_name,
+            date_str=date_str,
+        )
 
     traced_figures = extract_traced_figures(reconciliation, analytics)
     is_grounded, untraced = validate_grounding(message, reconciliation, analytics)
@@ -333,4 +404,5 @@ def generate_narrative_summary(
         traced_figures=traced_figures,
         is_grounded=is_grounded,
         untraced_numbers=untraced,
+        generated_by=engine_used,
     )

@@ -8,6 +8,9 @@ Provides complete REST endpoints for:
 """
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, HTTPException, Path, Query, status
 from fastapi.middleware.cors import CORSMiddleware
