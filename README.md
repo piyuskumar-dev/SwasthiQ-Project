@@ -242,4 +242,23 @@ In accordance with healthcare financial standards (NABH / HIPAA / ISO 27001), cl
 6. **Dual-Authorization Workflow for Disbursals**:
    - Cash and digital refunds exceeding a configurable threshold (e.g. ₹500) trigger a supervisor approval requirement (Admin OTP / biometric sign-off) before drawer balances can be decremented.
 
+---
+
+## 9. Patient Receipt Generation & Thermal PDF Printing
+
+To bridge digital EOD reconciliation with physical clinic operations, SwasthiQ provides an **Instant Patient Receipt & Thermal Dispensary Slip Engine**:
+
+1. **Instant On-Demand & Post-Transaction Printing**:
+   - Upon recording any payment, the interface presents a one-click **"Print Receipt / Save as PDF"** action.
+   - Any historical or current transaction in the **Recorded Payment Transactions & Patient Ledger** table can be re-printed or saved to PDF at any time via the **"Slip"** action button.
+2. **Official Medical & Financial Layout**:
+   - **Clinic & Hospital Branding**: Displays the SwasthiQ-verified hospital logo, registered clinic name, and medical license metadata (`UP-MED/2026/014`).
+   - **Clinical Metadata**: Patient name, attending physician (`Dr. R. K. Mehta`), unique Visit / Bill ID, and system-enforced date/time stamp.
+   - **Prescription Medication Schedule**: Itemized breakdown of prescribed medicines with unit quantities, rates, and line totals.
+   - **Audited Settlement Figures**: Gross subtotal, flat/percentage discounts applied, net billed amount, and actual amount collected across payment modes (UPI / Cash / Card).
+   - **Dual-Purpose Dispensary Handover**: Doubles as a pharmacy fulfillment slip with a cashier signature/stamp area and patient instructions.
+3. **Printer & PDF Compatibility**:
+   - Formatted with `@page` and `@media print` CSS for both 80mm thermal receipt printers and standard A4 office printers with zero UI clutter.
+
+
 

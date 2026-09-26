@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, IndianRupee, AlertCircle, CheckCircle2, Lock, ShieldCheck } from 'lucide-react';
+import { X, Plus, Trash2, IndianRupee, AlertCircle, CheckCircle2, Lock, ShieldCheck, Printer } from 'lucide-react';
 import { recordSingleTransaction } from '../api/client';
+import { printReceipt } from '../utils/receiptPrinter';
 
 export default function AddPaymentModal({
   isOpen,
@@ -26,6 +27,15 @@ export default function AddPaymentModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+  const [submittedTx, setSubmittedTx] = useState(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSubmittedTx(null);
+      setErrorMsg(null);
+      setSuccessMsg(null);
+    }
+  }, [isOpen]);
 
   // Live system clock updater for audit proof of truth
   useEffect(() => {
@@ -129,17 +139,19 @@ export default function AddPaymentModal({
 
       await recordSingleTransaction(selectedClinic, effectiveDate, transactionPayload, clinicName);
 
-      setSuccessMsg(`Payment recorded successfully (${isRefund ? 'Refund' : 'Sale'}: ₹${paidVal.toLocaleString('en-IN')})!`);
-      setTimeout(() => {
-        if (onTransactionAdded) onTransactionAdded(effectiveDate);
-        onClose();
-      }, 1200);
+      if (onTransactionAdded) onTransactionAdded(effectiveDate);
+      setSubmittedTx(transactionPayload);
     } catch (err) {
       console.error('Failed to record transaction:', err);
       setErrorMsg(err.message || 'Failed to record transaction. Please check inputs.');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleClose = () => {
+    setSubmittedTx(null);
+    onClose();
   };
 
   return (
@@ -151,7 +163,7 @@ export default function AddPaymentModal({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Record New Payment / Transaction
+                {submittedTx ? 'Transaction Recorded' : 'Record New Payment / Transaction'}
               </h3>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                 <ShieldCheck className="w-3 h-3 text-blue-600 dark:text-blue-400" />
@@ -163,28 +175,70 @@ export default function AddPaymentModal({
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {errorMsg && (
-            <div className="flex items-center gap-2 p-3 text-xs rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{errorMsg}</span>
+        {/* Success View with Receipt Printing */}
+        {submittedTx ? (
+          <div className="p-8 text-center space-y-5 animate-in fade-in duration-200">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/10">
+              <CheckCircle2 className="w-8 h-8" />
             </div>
-          )}
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Payment Recorded Successfully!
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Invoice ID: <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{submittedTx.visit_id}</span>
+              </p>
+            </div>
 
-          {successMsg && (
-            <div className="flex items-center gap-2 p-3 text-xs rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>{successMsg}</span>
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-2 text-left max-w-sm mx-auto">
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Patient:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{submittedTx.patient_name || 'Walk-in Patient'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Amount Paid:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">₹{(Math.abs(submittedTx.amount_paid_paise) / 100).toLocaleString('en-IN')} ({submittedTx.payment_mode.toUpperCase()})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Prescription:</span>
+                <span className="text-slate-700 dark:text-slate-300 font-medium">{submittedTx.line_items?.length || 0} item(s)</span>
+              </div>
             </div>
-          )}
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => printReceipt(submittedTx, clinicName)}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition active:scale-95"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Receipt / Save as PDF</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs transition"
+              >
+                Done & Close
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Form Body */
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {errorMsg && (
+              <div className="flex items-center gap-2 p-3 text-xs rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
 
           {/* System Audit & Clinic Date Bar */}
           <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 space-y-2">
@@ -415,6 +469,7 @@ export default function AddPaymentModal({
             </button>
           </div>
         </form>
+      )}
       </div>
     </div>
   );

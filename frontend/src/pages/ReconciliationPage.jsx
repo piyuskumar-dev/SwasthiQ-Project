@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import StatCard from '../components/StatCard';
 import { formatRupees } from '../api/client';
-import { AlertCircle, Calculator, ArrowRight, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Calculator, ArrowRight, ShieldCheck, Printer } from 'lucide-react';
+import ReceiptModal from '../components/ReceiptModal';
 
 export default function ReconciliationPage({ report, isLoading }) {
+  const [activeReceiptTx, setActiveReceiptTx] = useState(null);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -238,6 +241,7 @@ export default function ReconciliationPage({ report, isLoading }) {
                   <th className="px-6 py-3.5">Payment Mode</th>
                   <th className="px-6 py-3.5">Status</th>
                   <th className="px-6 py-3.5 text-right">Amount</th>
+                  <th className="px-6 py-3.5 text-center">Receipt Slip</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -306,6 +310,17 @@ export default function ReconciliationPage({ report, isLoading }) {
                           {isRefund ? `-${formatRupees(paidPaise)}` : formatRupees(paidPaise)}
                         </span>
                       </td>
+                      <td className="px-6 py-3.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setActiveReceiptTx(r)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-blue-950/60 text-slate-700 hover:text-blue-700 dark:text-slate-300 dark:hover:text-blue-300 border border-slate-200 dark:border-slate-700 transition active:scale-95"
+                          title="View / Print Receipt Slip"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Slip</span>
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -314,6 +329,13 @@ export default function ReconciliationPage({ report, isLoading }) {
           </div>
         )}
       </div>
+
+      {/* Patient Receipt & Pharmacy Invoice Modal */}
+      <ReceiptModal
+        isOpen={Boolean(activeReceiptTx)}
+        onClose={() => setActiveReceiptTx(null)}
+        transaction={activeReceiptTx}
+      />
     </div>
   );
 }
