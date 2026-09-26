@@ -38,6 +38,28 @@ class LineItem(BaseModel):
         description="Unit price in integer paise, must be >= 0",
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_line_item(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            d = dict(data)
+            if "qty" not in d:
+                if "quantity" in d:
+                    d["qty"] = d["quantity"]
+                elif "count" in d:
+                    d["qty"] = d["count"]
+            if "unit_price_paise" not in d:
+                if "price_paise" in d:
+                    d["unit_price_paise"] = d["price_paise"]
+                elif "unit_price" in d:
+                    val = d["unit_price"]
+                    d["unit_price_paise"] = int(val * 100) if isinstance(val, float) else int(val)
+                elif "price" in d:
+                    val = d["price"]
+                    d["unit_price_paise"] = int(val * 100) if isinstance(val, float) else int(val)
+            return d
+        return data
+
     @field_validator("drug_name")
     @classmethod
     def validate_drug_name(cls, v: str) -> str:
@@ -63,6 +85,31 @@ class TransactionRow(BaseModel):
     amount_paid_paise: int = Field(..., description="Amount collected or refunded in integer paise")
     discount_paise: int = Field(default=0, ge=0, description="Discount given in integer paise (>= 0)")
     is_refund: bool = Field(default=False, description="Flag indicating if this transaction is a refund")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_transaction_row(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            d = dict(data)
+            if not d.get("clinic_id"):
+                d["clinic_id"] = "CLN-KNP-014"
+            if not d.get("visit_id"):
+                if d.get("bill_id"):
+                    d["visit_id"] = str(d["bill_id"])
+                elif d.get("id"):
+                    d["visit_id"] = str(d["id"])
+                elif d.get("transaction_id"):
+                    d["visit_id"] = str(d["transaction_id"])
+            if "line_items" not in d and "items" in d:
+                d["line_items"] = d["items"]
+            if "payment_mode" not in d and "mode" in d:
+                d["payment_mode"] = d["mode"]
+            if "timestamp" not in d or not d["timestamp"]:
+                d["timestamp"] = datetime.now().isoformat()
+            elif isinstance(d["timestamp"], str) and len(d["timestamp"]) == 10:
+                d["timestamp"] = f"{d['timestamp']}T12:00:00"
+            return d
+        return data
 
     @field_validator("clinic_id", "visit_id")
     @classmethod

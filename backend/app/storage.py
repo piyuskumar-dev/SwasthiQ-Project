@@ -212,6 +212,46 @@ class DatabaseManager:
             )
             return cursor.rowcount > 0
 
+    def append_transaction(
+        self,
+        clinic_id: str,
+        date_str: str,
+        transaction: Dict[str, Any],
+        clinic_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Appends a single transaction to a date's billing log and recalculates EOD metrics."""
+        existing = self.get_billing_log(clinic_id, date_str)
+        if existing:
+            records = list(existing.get("raw_records", []))
+            records.append(transaction)
+        else:
+            records = [transaction]
+        return self.save_billing_log(clinic_id, date_str, records, clinic_name)
+
+    def seed_default_samples(self) -> None:
+        """Seeds default sample days (2026-07-25, 2026-07-26, 2026-07-27) if missing."""
+        clinic_id = "CLN-KNP-014"
+        clinic_name = "Mehta Multi-Specialty Clinic — Kanpur, Uttar Pradesh"
+        sample_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+        dates_to_seed = ["2026-07-25", "2026-07-26", "2026-07-27"]
+        existing_dates = set(self.list_dates_for_clinic(clinic_id))
+
+        for d in dates_to_seed:
+            if d not in existing_dates:
+                file_path = os.path.join(sample_dir, f"billing_log_{d}.json")
+                if os.path.exists(file_path):
+                    try:
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            records = json.load(f)
+                            self.save_billing_log(
+                                clinic_id=clinic_id,
+                                date_str=d,
+                                raw_records=records,
+                                clinic_name=clinic_name,
+                            )
+                    except Exception as err:
+                        print(f"Warning: Failed to seed {d}: {err}")
+
     def close(self) -> None:
         """Closes thread-local connection."""
         if hasattr(self._local, "conn") and self._local.conn is not None:
@@ -220,3 +260,4 @@ class DatabaseManager:
 
 
 db_manager = DatabaseManager()
+

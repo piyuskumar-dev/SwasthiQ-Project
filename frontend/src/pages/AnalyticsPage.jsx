@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { formatRupees } from '../api/client';
-import { TrendingUp, Package, DollarSign } from 'lucide-react';
+import { Package, DollarSign } from 'lucide-react';
 
 export default function AnalyticsPage({ report, isLoading }) {
   const [hoveredHour, setHoveredHour] = useState(null);
@@ -10,7 +10,7 @@ export default function AnalyticsPage({ report, isLoading }) {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
           <div className="animate-spin w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full" />
-          <span className="text-sm font-medium text-slate-500">Computing deterministic analytics...</span>
+          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Computing deterministic analytics...</span>
         </div>
       </div>
     );
@@ -28,10 +28,7 @@ export default function AnalyticsPage({ report, isLoading }) {
   const peakHourInterval = analytics.peak_hour_interval || (analytics.peak_hour ? `${analytics.peak_hour}` : 'N/A');
   const peakRevenuePaise = analytics.peak_revenue_paise || 0;
 
-  // Filter or show active clinic hours (or default typical clinic day 8am to 8pm if zero data)
   const allHours = analytics.hourly_breakdown || [];
-  
-  // Find range of hours that had transactions or default to 8am - 7pm
   const activeHoursList = allHours.filter(h => h.hour >= 8 && h.hour <= 19);
   const displayHours = activeHoursList.length > 0 ? activeHoursList : allHours.slice(8, 20);
 
@@ -42,22 +39,21 @@ export default function AnalyticsPage({ report, isLoading }) {
 
   return (
     <div className="space-y-6">
-      {/* 1. Revenue by Hour of Day Bar Chart (Page 6 Mockup) */}
-      <div className="bg-white rounded-2xl p-6 md:p-8 border border-slate-200/90 shadow-2xs">
+      {/* 1. Revenue by Hour of Day Bar Chart */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
           <div>
-            <h2 className="text-base font-bold text-slate-900 tracking-tight">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
               Revenue by Hour of Day
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
               Hourly collected revenue across 24-hour UTC window
             </p>
           </div>
 
-          {/* Peak hour banner matching Page 6 */}
           {peakRevenuePaise > 0 && (
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-700 text-xs font-bold tracking-tight">
-              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900 text-blue-700 dark:text-blue-300 text-xs font-bold tracking-tight">
+              <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse" />
               <span>Peak: {peakHourInterval} — {formatRupees(peakRevenuePaise)}</span>
             </div>
           )}
@@ -81,41 +77,37 @@ export default function AnalyticsPage({ report, isLoading }) {
                   onMouseEnter={() => setHoveredHour(item.hour)}
                   onMouseLeave={() => setHoveredHour(null)}
                 >
-                  {/* Tooltip on Hover */}
                   {isHovered && (
-                    <div className="absolute -top-12 z-20 px-2.5 py-1.5 rounded-lg bg-slate-900 text-white text-[11px] font-medium shadow-xl whitespace-nowrap animate-in fade-in zoom-in-95 pointer-events-none">
+                    <div className="absolute -top-12 z-20 px-2.5 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-700 text-white text-[11px] font-medium shadow-xl whitespace-nowrap animate-in fade-in zoom-in-95 pointer-events-none">
                       <div className="font-bold">{item.interval_label}</div>
-                      <div className="text-emerald-300 font-semibold">{formatRupees(item.revenue_paise)}</div>
+                      <div className="text-emerald-300 dark:text-emerald-400 font-semibold">{formatRupees(item.revenue_paise)}</div>
                     </div>
                   )}
 
-                  {/* Peak label badge above bar if it's the peak */}
                   {isPeak && (
-                    <div className="mb-2 text-[11px] font-bold text-blue-600 hidden md:block whitespace-nowrap animate-bounce">
+                    <div className="mb-2 text-[11px] font-bold text-blue-600 dark:text-blue-400 hidden md:block whitespace-nowrap animate-bounce">
                       Peak: {item.hour_label}
                     </div>
                   )}
 
-                  {/* The Bar */}
                   <div
                     style={{ height: `${heightPct}%` }}
                     className={`w-full max-w-[48px] rounded-lg transition-all duration-300 ${
                       isPeak
-                        ? 'bg-blue-600 shadow-md shadow-blue-500/20'
+                        ? 'bg-blue-600 dark:bg-blue-500 shadow-md shadow-blue-500/20'
                         : item.revenue_paise > 0
-                        ? 'bg-blue-100 hover:bg-blue-200'
-                        : 'bg-slate-100/70 hover:bg-slate-200/50'
+                        ? 'bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-800/60'
+                        : 'bg-slate-100/70 dark:bg-slate-800 hover:bg-slate-200/50 dark:hover:bg-slate-700'
                     }`}
                   />
 
-                  {/* X-axis Label */}
                   <span
                     className={`mt-3 text-[11px] font-medium transition ${
                       isPeak
-                        ? 'font-bold text-blue-600'
+                        ? 'font-bold text-blue-600 dark:text-blue-400'
                         : isHovered
-                        ? 'text-slate-900 font-semibold'
-                        : 'text-slate-400'
+                        ? 'text-slate-900 dark:text-white font-semibold'
+                        : 'text-slate-400 dark:text-slate-500'
                     }`}
                   >
                     {item.hour_label}
@@ -127,24 +119,24 @@ export default function AnalyticsPage({ report, isLoading }) {
         </div>
       </div>
 
-      {/* 2. Two Distinct Side-by-Side Ranking Panels (Page 6 Mockup) */}
+      {/* 2. Two Distinct Side-by-Side Ranking Panels */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left: Top Medicines by Quantity */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-2xs">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+              <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
                 <Package className="w-4 h-4" />
               </div>
-              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                 Top Medicines — by Quantity
               </h3>
             </div>
-            <span className="text-[11px] font-medium text-slate-400">Total units dispensed</span>
+            <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">Total units dispensed</span>
           </div>
 
           {topQuantity.length === 0 ? (
-            <div className="py-8 text-center text-xs text-slate-400 font-medium">
+            <div className="py-8 text-center text-xs text-slate-400 dark:text-slate-500 font-medium">
               No medicine sales recorded for this date.
             </div>
           ) : (
@@ -152,17 +144,17 @@ export default function AnalyticsPage({ report, isLoading }) {
               {topQuantity.slice(0, 5).map((item, index) => (
                 <div
                   key={item.drug_name}
-                  className="flex items-center justify-between py-2 border-b border-slate-50 last:border-none"
+                  className="flex items-center justify-between py-2 border-b border-slate-50 dark:border-slate-800 last:border-none"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-slate-300 w-4">
+                    <span className="text-xs font-bold text-slate-300 dark:text-slate-600 w-4">
                       {index + 1}
                     </span>
-                    <span className="text-xs font-bold text-slate-800 tracking-wide">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 tracking-wide">
                       {item.drug_name}
                     </span>
                   </div>
-                  <span className="text-xs font-semibold text-slate-500">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                     {item.qty} units
                   </span>
                 </div>
@@ -172,21 +164,21 @@ export default function AnalyticsPage({ report, isLoading }) {
         </div>
 
         {/* Right: Top Medicines by Revenue */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200/90 shadow-2xs">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                 <DollarSign className="w-4 h-4" />
               </div>
-              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
                 Top Medicines — by Revenue
               </h3>
             </div>
-            <span className="text-[11px] font-medium text-slate-400">Total paise earned</span>
+            <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">Total paise earned</span>
           </div>
 
           {topRevenue.length === 0 ? (
-            <div className="py-8 text-center text-xs text-slate-400 font-medium">
+            <div className="py-8 text-center text-xs text-slate-400 dark:text-slate-500 font-medium">
               No medicine sales recorded for this date.
             </div>
           ) : (
@@ -194,17 +186,17 @@ export default function AnalyticsPage({ report, isLoading }) {
               {topRevenue.slice(0, 5).map((item, index) => (
                 <div
                   key={item.drug_name}
-                  className="flex items-center justify-between py-2 border-b border-slate-50 last:border-none"
+                  className="flex items-center justify-between py-2 border-b border-slate-50 dark:border-slate-800 last:border-none"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-slate-300 w-4">
+                    <span className="text-xs font-bold text-slate-300 dark:text-slate-600 w-4">
                       {index + 1}
                     </span>
-                    <span className="text-xs font-bold text-slate-800 tracking-wide">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 tracking-wide">
                       {item.drug_name}
                     </span>
                   </div>
-                  <span className="text-xs font-semibold text-slate-900 font-mono">
+                  <span className="text-xs font-semibold text-slate-900 dark:text-white font-mono">
                     {formatRupees(item.revenue_paise)}
                   </span>
                 </div>

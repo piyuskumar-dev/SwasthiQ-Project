@@ -27,12 +27,22 @@ from .schemas import (
     EODReconciliationResponse,
     TransactionRow,
 )
+from contextlib import asynccontextmanager
 from .storage import db_manager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Auto-seeds default sample days on startup so they are always available."""
+    db_manager.seed_default_samples()
+    yield
+
 
 app = FastAPI(
     title="SwasthiQ EOD Billing & Analytics API",
     description="Deterministic ingestion, persistence, reconciliation, analytics, and narrative summaries for clinic daily billing logs.",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 CORS_ORIGINS = os.getenv(
@@ -52,8 +62,58 @@ app.add_middleware(
 
 class IngestLogPayload(BaseModel):
     """Payload for ingesting a clinic billing log."""
-    clinic_name: Optional[str] = None
-    records: List[Dict[str, Any]] = Field(..., description="Array of visit records")
+    clinic_name: Optional[str] = "Mehta Multi-Specialty Clinic"
+    records: List[Dict[str, Any]] = Field(
+        ...,
+        description="Array of visit records",
+        json_schema_extra={
+            "example": [
+                {
+                    "visit_id": "VST-1001",
+                    "timestamp": "2026-07-28T10:30:00Z",
+                    "payment_mode": "cash",
+                    "amount_paid_paise": 40000,
+                    "discount_paise": 0,
+                    "is_refund": False,
+                    "line_items": [
+                        {
+                            "drug_name": "Paracetamol 650mg",
+                            "qty": 1,
+                            "unit_price_paise": 40000,
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+
+
+class SingleTransactionPayload(BaseModel):
+    """Payload for recording a single clinic transaction/payment."""
+    date: str = Field(..., description="Billing date in YYYY-MM-DD format", json_schema_extra={"example": "2026-07-28"})
+    clinic_name: Optional[str] = "Mehta Multi-Specialty Clinic"
+    transaction: Dict[str, Any] = Field(
+        ...,
+        description="Single transaction record",
+        json_schema_extra={
+            "example": {
+                "visit_id": "VST-2001",
+                "doctor_id": "DOC-001",
+                "timestamp": "2026-07-28T11:30:00Z",
+                "payment_mode": "upi",
+                "amount_paid_paise": 65000,
+                "discount_paise": 5000,
+                "is_refund": False,
+                "line_items": [
+                    {
+                        "drug_name": "Amoxicillin 500mg",
+                        "qty": 2,
+                        "unit_price_paise": 35000,
+                    }
+                ],
+            }
+        },
+    )
 
 
 class GenerateNarrativePayload(BaseModel):
@@ -132,6 +192,39 @@ def ingest_billing_log(
         "message": f"Billing log for clinic '{clinic_id}' on {date} saved successfully.",
         "data": result,
     }
+
+
+@app.post(
+    "/api/clinics/{clinic_id}/transactions",
+    tags=["Billing Logs & Ingestion"],
+    summary="Record a single transaction/payment and recalculate EOD reports atomically",
+)
+def record_transaction(
+    clinic_id: str = Path(..., description="Clinic ID e.g. CLN-KNP-014"),
+    payload: SingleTransactionPayload = ...,
+) -> Dict[str, Any]:
+    """
+    Appends a new billing transaction to the clinic's log for the given date.
+    Recalculates deterministic reconciliation and analytics immediately.
+    """
+    tx_data = dict(payload.transaction)
+    tx_data["clinic_id"] = clinic_id
+    if not tx_data.get("timestamp"):
+        tx_data["timestamp"] = f"{payload.date}T12:00:00Z"
+
+    result = db_manager.append_transaction(
+        clinic_id=clinic_id,
+        date_str=payload.date,
+        transaction=tx_data,
+        clinic_name=payload.clinic_name,
+    )
+
+    return {
+        "status": "success" if result["rejected_records_count"] == 0 else "partial_success",
+        "message": f"Transaction recorded for clinic '{clinic_id}' on {payload.date}.",
+        "data": result,
+    }
+
 
 
 @app.get(

@@ -350,3 +350,35 @@ def test_api_on_the_fly_narrative():
     res_data = response.json()
     assert res_data["is_grounded"] is True
     assert "₹10,000" in res_data["whatsapp_message"]
+
+
+def test_record_single_transaction_api():
+    """Tests POST /api/clinics/{clinic_id}/transactions appends and recalculates correctly."""
+    clinic_id = "CLN-TEST-TX-001"
+    date_str = "2026-07-29"
+
+    tx_payload = {
+        "date": date_str,
+        "clinic_name": "Test Clinic Single Tx",
+        "transaction": {
+            "visit_id": "V-SINGLE-01",
+            "doctor_id": "DOC-99",
+            "timestamp": "2026-07-29T10:00:00Z",
+            "payment_mode": "upi",
+            "amount_paid_paise": 50000,
+            "discount_paise": 0,
+            "is_refund": False,
+            "line_items": [
+                {"drug_name": "AZITHROMYCIN", "qty": 1, "unit_price_paise": 50000}
+            ],
+        },
+    }
+
+    res = client.post(f"/api/clinics/{clinic_id}/transactions", json=tx_payload)
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert data["valid_records_count"] == 1
+    assert data["reconciliation"]["total_billed_paise"] == 50000
+    assert data["reconciliation"]["total_collected_paise"] == 50000
+    assert data["analytics"]["top_medicines_by_quantity"][0]["drug_name"] == "AZITHROMYCIN"
+

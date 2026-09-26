@@ -28,15 +28,37 @@ export async function fetchClinics() {
 }
 
 export async function fetchClinicDates(clinicId) {
+  const sampleDates = Object.keys(SAMPLE_DATASETS);
   try {
     const res = await fetch(`${API_BASE_URL}/api/clinics/${clinicId}/dates`);
-    if (!res.ok) throw new Error('Failed to fetch dates');
-    const data = await res.json();
-    return data.dates && data.dates.length > 0 ? data.dates : Object.keys(SAMPLE_DATASETS).sort().reverse();
+    if (res.ok) {
+      const data = await res.json();
+      const combined = Array.from(new Set([...(data.dates || []), ...sampleDates])).sort().reverse();
+      return combined.length > 0 ? combined : sampleDates.sort().reverse();
+    }
   } catch (err) {
     console.warn('API unavailable, returning sample dates', err);
-    return Object.keys(SAMPLE_DATASETS).sort().reverse();
   }
+  return sampleDates.sort().reverse();
+}
+
+export async function recordSingleTransaction(clinicId, date, transaction, clinicName = 'Mehta Multi-Specialty Clinic') {
+  const res = await fetch(`${API_BASE_URL}/api/clinics/${clinicId}/transactions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      date,
+      clinic_name: clinicName,
+      transaction,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Failed to record transaction');
+  }
+
+  return await res.json();
 }
 
 export async function fetchEODReport(clinicId, date) {

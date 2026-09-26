@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, ChevronDown, Building2, Check } from 'lucide-react';
+import { Calendar, ChevronDown, Building2, Check, Plus, Sun, Moon, IndianRupee } from 'lucide-react';
 
 export default function Header({
   title,
@@ -10,6 +10,9 @@ export default function Header({
   selectedClinic,
   setSelectedClinic,
   clinics,
+  darkMode,
+  setDarkMode,
+  onOpenAddPayment,
 }) {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isClinicPickerOpen, setIsClinicPickerOpen] = useState(false);
@@ -29,15 +32,36 @@ export default function Header({
   return (
     <header className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
-        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           {title}
         </h1>
-        <p className="text-sm font-medium text-slate-500 mt-0.5">
+        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-0.5">
           {subtitle || 'Mehta Multi-Specialty Clinic — Kanpur, Uttar Pradesh'}
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2.5">
+        {/* Record Payment Button */}
+        {onOpenAddPayment && (
+          <button
+            onClick={onOpenAddPayment}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition active:scale-95"
+            title="Record a new clinic payment / transaction"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Payment</span>
+          </button>
+        )}
+
+        {/* Dark Mode Toggle */}
+        <button
+          onClick={() => setDarkMode(!darkMode)}
+          className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-2xs transition"
+          title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-500" />}
+        </button>
+
         {/* Clinic Selector Dropdown */}
         <div className="relative">
           <button
@@ -45,7 +69,7 @@ export default function Header({
               setIsClinicPickerOpen(!isClinicPickerOpen);
               setIsDatePickerOpen(false);
             }}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-2xs transition"
           >
             <Building2 className="w-3.5 h-3.5 text-slate-400" />
             <span className="max-w-[140px] truncate">
@@ -55,8 +79,8 @@ export default function Header({
           </button>
 
           {isClinicPickerOpen && (
-            <div className="absolute right-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="absolute right-0 mt-1 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 Select Clinic
               </div>
               {clinics.map((c) => (
@@ -66,24 +90,24 @@ export default function Header({
                     setSelectedClinic(c.clinic_id);
                     setIsClinicPickerOpen(false);
                   }}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 flex items-center justify-between text-slate-700"
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 dark:hover:bg-slate-700 flex items-center justify-between text-slate-700 dark:text-slate-200"
                 >
                   <span className="truncate">{c.name || c.clinic_id}</span>
-                  {selectedClinic === c.clinic_id && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                  {selectedClinic === c.clinic_id && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Date Selector Dropdown (matches Page 5 mockup) */}
+        {/* Date Selector Dropdown */}
         <div className="relative">
           <button
             onClick={() => {
               setIsDatePickerOpen(!isDatePickerOpen);
               setIsClinicPickerOpen(false);
             }}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-2xs transition"
           >
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
             <span>{formatDateDisplay(selectedDate)}</span>
@@ -91,27 +115,48 @@ export default function Header({
           </button>
 
           {isDatePickerOpen && (
-            <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Sample Clinic Days
+            <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Available Dates
               </div>
-              {availableDates.map((date) => (
-                <button
-                  key={date}
-                  onClick={() => {
-                    setSelectedDate(date);
-                    setIsDatePickerOpen(false);
+              
+              <div className="max-h-48 overflow-y-auto">
+                {availableDates.map((date) => (
+                  <button
+                    key={date}
+                    onClick={() => {
+                      setSelectedDate(date);
+                      setIsDatePickerOpen(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition ${
+                      selectedDate === date
+                        ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-semibold'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <span>{formatDateDisplay(date)}</span>
+                    {selectedDate === date && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Date Input */}
+              <div className="p-2 border-t border-slate-100 dark:border-slate-700 mt-1">
+                <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mb-1 px-1">
+                  Or pick custom date:
+                </div>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setSelectedDate(e.target.value);
+                      setIsDatePickerOpen(false);
+                    }
                   }}
-                  className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between transition ${
-                    selectedDate === date
-                      ? 'bg-blue-50 text-blue-600 font-semibold'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <span>{formatDateDisplay(date)}</span>
-                  {selectedDate === date && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
-                </button>
-              ))}
+                  className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
             </div>
           )}
         </div>
