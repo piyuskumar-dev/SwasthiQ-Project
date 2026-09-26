@@ -1,6 +1,6 @@
 import { SAMPLE_DATASETS } from './sampleData';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://swasthiq-backend-jqhg.onrender.com';
 
 export async function checkBackendHealth() {
   try {

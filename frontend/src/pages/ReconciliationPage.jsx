@@ -32,17 +32,6 @@ export default function ReconciliationPage({
   const [isResolving, setIsResolving] = useState(false);
   const [resolveError, setResolveError] = useState(null);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full" />
-          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Computing deterministic reconciliation...</span>
-        </div>
-      </div>
-    );
-  }
-
   const reconciliation = report?.reconciliation || {
     total_billed_paise: 0,
     total_collected_paise: 0,
@@ -53,27 +42,6 @@ export default function ReconciliationPage({
     refund_visits_count: 0,
     by_payment_mode: {},
   };
-
-  const billedPaise = reconciliation.total_billed_paise || 0;
-  const collectedPaise = reconciliation.total_collected_paise || 0;
-  const outstandingPaise = reconciliation.total_outstanding_paise || 0;
-  const refundsPaise = reconciliation.total_refunds_paise || 0;
-
-  // Realized Net Collection = Gross Collected - Refunds Disbursed
-  const netCollectedPaise = reconciliation.net_collected_paise !== undefined
-    ? reconciliation.net_collected_paise
-    : (collectedPaise - refundsPaise);
-
-  const collectionPct = billedPaise > 0 ? Math.round((collectedPaise / billedPaise) * 100) : 0;
-
-  const modes = ['cash', 'card', 'upi'];
-  const byMode = reconciliation.by_payment_mode || {};
-
-  const totalModeBilled = modes.reduce((acc, m) => acc + (byMode[m]?.billed_paise || 0), 0);
-  const totalModeCollected = modes.reduce((acc, m) => acc + (byMode[m]?.collected_paise || 0), 0);
-  const totalModeOutstanding = modes.reduce((acc, m) => acc + (byMode[m]?.outstanding_paise || 0), 0);
-  const totalModeRefunds = modes.reduce((acc, m) => acc + (byMode[m]?.refunds_paise || 0), 0);
-  const totalModeNet = totalModeCollected - totalModeRefunds;
 
   const rejectedErrors = report?.rejected_errors || [];
 
@@ -98,6 +66,38 @@ export default function ReconciliationPage({
     }
     return map;
   }, [reconciliation]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full" />
+          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Computing deterministic reconciliation...</span>
+        </div>
+      </div>
+    );
+  }
+
+  const billedPaise = reconciliation.total_billed_paise || 0;
+  const collectedPaise = reconciliation.total_collected_paise || 0;
+  const outstandingPaise = reconciliation.total_outstanding_paise || 0;
+  const refundsPaise = reconciliation.total_refunds_paise || 0;
+
+  // Realized Net Collection = Gross Collected - Refunds Disbursed
+  const netCollectedPaise = reconciliation.net_collected_paise !== undefined
+    ? reconciliation.net_collected_paise
+    : (collectedPaise - refundsPaise);
+
+  const collectionPct = billedPaise > 0 ? Math.round((collectedPaise / billedPaise) * 100) : 0;
+
+  const modes = ['cash', 'card', 'upi'];
+  const byMode = reconciliation.by_payment_mode || {};
+
+  const totalModeBilled = modes.reduce((acc, m) => acc + (byMode[m]?.billed_paise || 0), 0);
+  const totalModeCollected = modes.reduce((acc, m) => acc + (byMode[m]?.collected_paise || 0), 0);
+  const totalModeOutstanding = modes.reduce((acc, m) => acc + (byMode[m]?.outstanding_paise || 0), 0);
+  const totalModeRefunds = modes.reduce((acc, m) => acc + (byMode[m]?.refunds_paise || 0), 0);
+  const totalModeNet = totalModeCollected - totalModeRefunds;
 
   const rawRecords = report?.raw_records || [];
   const totalRecordsCount = rawRecords.length;
