@@ -1,7 +1,7 @@
 import React from 'react';
 import StatCard from '../components/StatCard';
 import { formatRupees } from '../api/client';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Calculator, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export default function ReconciliationPage({ report, isLoading }) {
   if (isLoading) {
@@ -31,6 +31,11 @@ export default function ReconciliationPage({ report, isLoading }) {
   const outstandingPaise = reconciliation.total_outstanding_paise || 0;
   const refundsPaise = reconciliation.total_refunds_paise || 0;
 
+  // Realized Net Collection = Gross Collected - Refunds Disbursed
+  const netCollectedPaise = reconciliation.net_collected_paise !== undefined
+    ? reconciliation.net_collected_paise
+    : (collectedPaise - refundsPaise);
+
   const collectionPct = billedPaise > 0 ? Math.round((collectedPaise / billedPaise) * 100) : 0;
 
   const modes = ['cash', 'card', 'upi'];
@@ -40,12 +45,13 @@ export default function ReconciliationPage({ report, isLoading }) {
   const totalModeCollected = modes.reduce((acc, m) => acc + (byMode[m]?.collected_paise || 0), 0);
   const totalModeOutstanding = modes.reduce((acc, m) => acc + (byMode[m]?.outstanding_paise || 0), 0);
   const totalModeRefunds = modes.reduce((acc, m) => acc + (byMode[m]?.refunds_paise || 0), 0);
+  const totalModeNet = totalModeCollected - totalModeRefunds;
 
   const rejectedErrors = report?.rejected_errors || [];
 
   return (
     <div className="space-y-6">
-      {/* Resilient Ingestion Alert */}
+      {/* Resilient Ingestion Notice */}
       {rejectedErrors.length > 0 && (
         <div className="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/60 rounded-2xl p-4 flex items-start gap-3 text-amber-900 dark:text-amber-200">
           <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
@@ -67,18 +73,18 @@ export default function ReconciliationPage({ report, isLoading }) {
         </div>
       )}
 
-      {/* 4 Stat Cards Grid */}
+      {/* 4 Stat Cards Grid (Page 5 Mockup) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
         <StatCard
           label="Total Billed"
           value={formatRupees(billedPaise)}
-          subtext={`${reconciliation.total_visits} visits`}
+          subtext={`${reconciliation.total_visits} patient visits`}
           subtextColor="text-blue-600 dark:text-blue-400"
         />
         <StatCard
           label="Total Collected"
           value={formatRupees(collectedPaise)}
-          subtext={`${collectionPct}% of billed`}
+          subtext={refundsPaise > 0 ? `Net in-hand: ${formatRupees(netCollectedPaise)}` : `${collectionPct}% collected`}
           subtextColor="text-emerald-600 dark:text-emerald-400"
         />
         <StatCard
@@ -90,12 +96,52 @@ export default function ReconciliationPage({ report, isLoading }) {
         <StatCard
           label="Refunds"
           value={formatRupees(refundsPaise)}
-          subtext={`${reconciliation.refund_visits_count} refund${reconciliation.refund_visits_count === 1 ? '' : 's'}`}
+          subtext={`${reconciliation.refund_visits_count} refund${reconciliation.refund_visits_count === 1 ? '' : 's'} disbursed`}
           subtextColor="text-rose-500 dark:text-rose-400"
         />
       </div>
 
-      {/* Payment Mode Breakdown Table */}
+      {/* Register Settlement Equation Banner */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 md:p-5 border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+              <Calculator className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-900 dark:text-white">
+                Daily Closing Settlement Breakdown
+              </div>
+              <div className="text-[11px] text-slate-400 dark:text-slate-500">
+                Net Collections in register = Gross Collected minus Refunds
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              <span className="text-slate-500 dark:text-slate-400">Gross Collected:</span>
+              <span className="font-bold text-slate-900 dark:text-white">{formatRupees(collectedPaise)}</span>
+            </div>
+
+            <span className="text-slate-400 font-bold">−</span>
+
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60">
+              <span className="text-rose-700 dark:text-rose-300">Refunds:</span>
+              <span className="font-bold text-rose-700 dark:text-rose-300">{formatRupees(refundsPaise)}</span>
+            </div>
+
+            <span className="text-slate-400 font-bold">=</span>
+
+            <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 shadow-2xs">
+              <span className="text-emerald-700 dark:text-emerald-300 font-medium">Net Realized:</span>
+              <span className="font-extrabold text-emerald-800 dark:text-emerald-200 text-sm">{formatRupees(netCollectedPaise)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment Mode Breakdown Table (Page 5 Mockup) */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
@@ -113,11 +159,13 @@ export default function ReconciliationPage({ report, isLoading }) {
                 <th className="px-6 py-3.5">Collected</th>
                 <th className="px-6 py-3.5">Outstanding</th>
                 <th className="px-6 py-3.5">Refunds</th>
+                <th className="px-6 py-3.5">Net Realized</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
               {modes.map((mode) => {
                 const data = byMode[mode] || { billed_paise: 0, collected_paise: 0, outstanding_paise: 0, refunds_paise: 0 };
+                const netMode = data.collected_paise - data.refunds_paise;
                 const label = mode === 'upi' ? 'UPI' : mode.charAt(0).toUpperCase() + mode.slice(1);
                 return (
                   <tr key={mode} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition">
@@ -129,6 +177,9 @@ export default function ReconciliationPage({ report, isLoading }) {
                     </td>
                     <td className={`px-6 py-4 font-medium ${data.refunds_paise > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}`}>
                       {formatRupees(data.refunds_paise)}
+                    </td>
+                    <td className={`px-6 py-4 font-bold ${netMode >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-400'}`}>
+                      {formatRupees(netMode)}
                     </td>
                   </tr>
                 );
@@ -144,6 +195,9 @@ export default function ReconciliationPage({ report, isLoading }) {
                 </td>
                 <td className={`px-6 py-4 ${totalModeRefunds > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}`}>
                   {formatRupees(totalModeRefunds)}
+                </td>
+                <td className="px-6 py-4 text-emerald-800 dark:text-emerald-200 font-extrabold">
+                  {formatRupees(totalModeNet)}
                 </td>
               </tr>
             </tfoot>
