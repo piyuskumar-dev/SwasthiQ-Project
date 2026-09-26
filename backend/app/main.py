@@ -177,10 +177,10 @@ def ingest_billing_log(
     Ingests or updates a clinic's daily billing log.
     Ensures data consistency upon update via atomic SQLite upsert.
     """
-    if not payload.records:
+    if payload.records is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Billing log payload records cannot be empty.",
+            detail="Billing log payload records cannot be null.",
         )
 
     result = db_manager.save_billing_log(

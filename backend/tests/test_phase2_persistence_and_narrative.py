@@ -323,6 +323,23 @@ def test_api_ingest_and_get_lifecycle(sample_raw_records):
     assert "No billing data found" in not_found_res.json()["detail"]
 
 
+def test_api_ingest_empty_records_allowed():
+    """Verifies that an empty records array (zero visits / clinic closed day) is accepted."""
+    clinic_id = "CLN-API-EMPTY"
+    date_str = "2026-07-26"
+
+    res = client.post(
+        f"/api/clinics/{clinic_id}/billing-logs/{date_str}",
+        json={"clinic_name": "API Test Clinic Closed", "records": []},
+    )
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert data["total_records"] == 0
+    assert data["valid_records_count"] == 0
+    assert data["reconciliation"]["total_visits"] == 0
+    assert data["reconciliation"]["total_billed_paise"] == 0
+
+
 def test_api_on_the_fly_narrative():
     """Tests POST /api/narrative on-the-fly generation."""
     payload = {
