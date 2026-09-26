@@ -1,5 +1,6 @@
 import React from 'react';
 import { LayoutDashboard, BarChart3, Bot, Database, Sparkles, CheckCircle2 } from 'lucide-react';
+import logo from '../assets/logo.png';
 
 export default function Sidebar({ currentTab, setCurrentTab, isBackendOnline, onSeedData, isSeeding }) {
   const navItems = [
@@ -13,9 +14,11 @@ export default function Sidebar({ currentTab, setCurrentTab, isBackendOnline, on
       {/* Brand Logo & Name */}
       <div className="p-5 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-            <span className="font-bold text-lg tracking-tight">S</span>
-          </div>
+          <img
+            src={logo}
+            alt="SwasthiQ Logo"
+            className="w-9 h-9 rounded-xl object-contain shadow-xs border border-slate-200/80 p-0.5 bg-white shrink-0"
+          />
           <div>
             <div className="font-bold text-slate-900 tracking-tight text-base leading-tight">SwasthiQ</div>
             <div className="text-[11px] font-medium text-slate-400">EOD Agent v2.0</div>
