@@ -179,7 +179,14 @@ export default function App() {
           {/* Screen Display Area */}
           <div className="mt-4">
             {currentTab === 'reconciliation' && (
-              <ReconciliationPage report={report} isLoading={isLoading} />
+              <ReconciliationPage
+                report={report}
+                isLoading={isLoading}
+                selectedClinic={selectedClinic}
+                selectedDate={selectedDate}
+                clinicName={currentClinicName}
+                onRefresh={() => loadData(selectedClinic, selectedDate)}
+              />
             )}
 
             {currentTab === 'analytics' && (

@@ -1,11 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import StatCard from '../components/StatCard';
-import { formatRupees } from '../api/client';
-import { AlertCircle, Calculator, ArrowRight, ShieldCheck, Printer } from 'lucide-react';
+import { formatRupees, ingestBillingLog } from '../api/client';
+import {
+  AlertCircle,
+  Calculator,
+  ArrowRight,
+  ShieldCheck,
+  Printer,
+  CheckCircle2,
+  Clock,
+  Edit3,
+  X,
+  Check,
+  QrCode,
+  Banknote,
+  CreditCard,
+} from 'lucide-react';
 import ReceiptModal from '../components/ReceiptModal';
 
-export default function ReconciliationPage({ report, isLoading }) {
+export default function ReconciliationPage({
+  report,
+  isLoading,
+  selectedClinic,
+  selectedDate,
+  clinicName,
+  onRefresh,
+}) {
   const [activeReceiptTx, setActiveReceiptTx] = useState(null);
+  const [resolvingTx, setResolvingTx] = useState(null);
+  const [selectedModeForResolve, setSelectedModeForResolve] = useState('upi');
+  const [isResolving, setIsResolving] = useState(false);
+  const [resolveError, setResolveError] = useState(null);
 
   if (isLoading) {
     return (
@@ -52,29 +77,70 @@ export default function ReconciliationPage({ report, isLoading }) {
 
   const rejectedErrors = report?.rejected_errors || [];
 
+  const rejectedMap = useMemo(() => {
+    const map = new Map();
+    for (const err of rejectedErrors) {
+      if (err.visit_id) {
+        map.set(err.visit_id, err);
+      }
+    }
+    return map;
+  }, [rejectedErrors]);
+
+  const perVisitMap = useMemo(() => {
+    const map = new Map();
+    if (Array.isArray(reconciliation?.per_visit)) {
+      for (const v of reconciliation.per_visit) {
+        if (v.visit_id) {
+          map.set(v.visit_id, v);
+        }
+      }
+    }
+    return map;
+  }, [reconciliation]);
+
+  const rawRecords = report?.raw_records || [];
+  const totalRecordsCount = rawRecords.length;
+  const incompleteCount = rawRecords.filter((r) => !r.payment_mode || rejectedMap.has(r.visit_id)).length;
+  const pendingVisitsCount = reconciliation.pending_visits_count || 0;
+  const refundVisitsCount = reconciliation.refund_visits_count || 0;
+  const completedCount = Math.max(0, totalRecordsCount - incompleteCount - pendingVisitsCount - refundVisitsCount);
+
+  const handleSaveResolvedMode = async () => {
+    if (!resolvingTx || !selectedModeForResolve) return;
+    setIsResolving(true);
+    setResolveError(null);
+    try {
+      const updatedRecords = rawRecords.map((rec) => {
+        if (rec.visit_id === resolvingTx.visit_id) {
+          return {
+            ...rec,
+            payment_mode: selectedModeForResolve,
+          };
+        }
+        return rec;
+      });
+
+      await ingestBillingLog(
+        selectedClinic || 'CLN-KNP-014',
+        selectedDate || '2026-07-27',
+        updatedRecords,
+        clinicName || 'Mehta Multi-Specialty Clinic'
+      );
+
+      setResolvingTx(null);
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (err) {
+      setResolveError(err.message || 'Failed to update payment mode');
+    } finally {
+      setIsResolving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Resilient Ingestion Notice */}
-      {rejectedErrors.length > 0 && (
-        <div className="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/60 rounded-2xl p-4 flex items-start gap-3 text-amber-900 dark:text-amber-200">
-          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <div className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
-              Ingestion Notice: {rejectedErrors.length} Malformed Row Isolated
-            </div>
-            <p className="text-xs text-amber-700 dark:text-amber-300/80 mt-0.5">
-              The deterministic pipeline rejected malformed records with actionable errors rather than failing with a 500:
-            </p>
-            <ul className="mt-1.5 space-y-1">
-              {rejectedErrors.map((err, i) => (
-                <li key={i} className="text-xs font-mono bg-amber-100/60 dark:bg-amber-900/50 px-2 py-1 rounded-md text-amber-900 dark:text-amber-200 inline-block mr-2">
-                  Visit {err.visit_id || 'UNKNOWN'}: {err.error}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
 
       {/* 4 Stat Cards Grid (Page 5 Mockup) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
@@ -210,22 +276,42 @@ export default function ReconciliationPage({ report, isLoading }) {
 
       {/* Recorded Payment Transactions & Patient Ledger */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
               Recorded Payment Transactions & Patient Ledger
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Complete transaction log for this clinic date ({report?.raw_records?.length || 0} recorded) • Preserved and reconciled
-            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Complete transaction log for this clinic date ({totalRecordsCount} recorded) • Preserved and reconciled
+              </span>
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  {completedCount} Completed
+                </span>
+                {pendingVisitsCount > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium border border-amber-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    {pendingVisitsCount} Partially Paid
+                  </span>
+                )}
+                {incompleteCount > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 font-medium border border-amber-500/30">
+                    <AlertCircle className="w-3 h-3 text-amber-500" />
+                    {incompleteCount} Incomplete
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 self-start sm:self-center">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             Audit Ledger Active
           </span>
         </div>
 
-        {(!report?.raw_records || report.raw_records.length === 0) ? (
+        {(!rawRecords || rawRecords.length === 0) ? (
           <div className="p-8 text-center text-slate-400 dark:text-slate-500 text-xs">
             No payment transactions recorded for this clinic date yet. Use "Add Payment" to record a new transaction.
           </div>
@@ -245,10 +331,14 @@ export default function ReconciliationPage({ report, isLoading }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                {[...report.raw_records].reverse().map((r, idx) => {
+                {[...rawRecords].reverse().map((r, idx) => {
                   const isRefund = Boolean(r.is_refund);
-                  const mode = (r.payment_mode || 'upi').toLowerCase();
+                  const isMalformed = rejectedMap.has(r.visit_id) || !r.payment_mode;
+                  const mode = (r.payment_mode || '').toLowerCase();
                   const paidPaise = Math.abs(r.amount_paid_paise || 0);
+                  const perVisit = perVisitMap.get(r.visit_id);
+                  const outstandingPaise = perVisit?.outstanding_paise || 0;
+                  const isPartial = !isRefund && !isMalformed && outstandingPaise > 0;
                   const itemsList = r.line_items || [];
                   const itemsSummary = itemsList.length > 0
                     ? itemsList.map((it) => `${it.drug_name || 'Item'} (${it.qty || 1})`).join(', ')
@@ -265,7 +355,7 @@ export default function ReconciliationPage({ report, isLoading }) {
                   }
 
                   return (
-                    <tr key={r.visit_id || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition">
+                    <tr key={r.visit_id || idx} className={`transition ${isMalformed ? 'bg-amber-50/30 dark:bg-amber-950/20 hover:bg-amber-50/60 dark:hover:bg-amber-950/40' : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/60'}`}>
                       <td className="px-6 py-3.5 font-mono text-xs font-semibold text-slate-900 dark:text-white">
                         {r.visit_id || `TX-${idx + 1}`}
                       </td>
@@ -284,24 +374,47 @@ export default function ReconciliationPage({ report, isLoading }) {
                         {itemsSummary}
                       </td>
                       <td className="px-6 py-3.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider ${
-                          mode === 'upi'
-                            ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800'
-                            : mode === 'cash'
-                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800'
-                            : 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800'
-                        }`}>
-                          {mode}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3.5">
-                        {isRefund ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800">
-                            Refund
+                        {r.payment_mode ? (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider ${
+                            mode === 'upi'
+                              ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800'
+                              : mode === 'cash'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800'
+                              : 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800'
+                          }`}>
+                            {mode}
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                            Completed
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-dashed border-amber-500/30">
+                            Missing
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3.5">
+                        {isMalformed ? (
+                          <span
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            title={rejectedMap.get(r.visit_id)?.error || 'Payment mode required'}
+                          >
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span>Incomplete (Payment mode required)</span>
+                          </span>
+                        ) : isRefund ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                            Refund
+                          </span>
+                        ) : isPartial ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            title={`Billed: ${formatRupees(perVisit?.billed_paise || 0)}, Paid: ${formatRupees(perVisit?.paid_paise || 0)}`}
+                          >
+                            <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span>Partially Paid ({formatRupees(outstandingPaise)} due)</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <span>Completed</span>
                           </span>
                         )}
                       </td>
@@ -311,15 +424,32 @@ export default function ReconciliationPage({ report, isLoading }) {
                         </span>
                       </td>
                       <td className="px-6 py-3.5 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setActiveReceiptTx(r)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-blue-950/60 text-slate-700 hover:text-blue-700 dark:text-slate-300 dark:hover:text-blue-300 border border-slate-200 dark:border-slate-700 transition active:scale-95"
-                          title="View / Print Receipt Slip"
-                        >
-                          <Printer className="w-3.5 h-3.5" />
-                          <span>Slip</span>
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          {isMalformed && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setResolvingTx(r);
+                                setSelectedModeForResolve('upi');
+                                setResolveError(null);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition active:scale-95 cursor-pointer"
+                              title="Set payment mode to complete and reconcile this transaction"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Set Mode</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setActiveReceiptTx(r)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-blue-950/60 text-slate-700 hover:text-blue-700 dark:text-slate-300 dark:hover:text-blue-300 border border-slate-200 dark:border-slate-700 transition active:scale-95 cursor-pointer"
+                            title="View / Print Receipt Slip"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>Slip</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -336,6 +466,125 @@ export default function ReconciliationPage({ report, isLoading }) {
         onClose={() => setActiveReceiptTx(null)}
         transaction={activeReceiptTx}
       />
+
+      {/* Resolve Incomplete Transaction Modal */}
+      {resolvingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Resolve Incomplete Payment
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Set missing payment mode for Visit <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">{resolvingTx.visit_id}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResolvingTx(null)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3.5 space-y-2 text-xs">
+                <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                  <span>Visit ID:</span>
+                  <span className="font-mono font-semibold text-slate-900 dark:text-white">{resolvingTx.visit_id}</span>
+                </div>
+                <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                  <span>Doctor:</span>
+                  <span className="font-medium text-slate-900 dark:text-white">{resolvingTx.doctor_id || 'DOC-014-01'}</span>
+                </div>
+                <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                  <span>Medications:</span>
+                  <span className="font-medium text-slate-900 dark:text-white truncate max-w-[200px]">
+                    {(resolvingTx.line_items || []).map((it) => `${it.drug_name} (${it.qty})`).join(', ') || 'N/A'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-700">
+                  <span>Amount Paid:</span>
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {formatRupees(resolvingTx.amount_paid_paise || 0)}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Select Collected Payment Mode
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {[
+                    { id: 'upi', label: 'UPI / QR', icon: QrCode, color: 'text-blue-500' },
+                    { id: 'cash', label: 'Cash', icon: Banknote, color: 'text-emerald-500' },
+                    { id: 'card', label: 'Card / POS', icon: CreditCard, color: 'text-purple-500' },
+                  ].map((m) => {
+                    const Icon = m.icon;
+                    const isSelected = selectedModeForResolve === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setSelectedModeForResolve(m.id)}
+                        className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 transition text-xs font-medium cursor-pointer ${
+                          isSelected
+                            ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500/20 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <Icon className={`w-5 h-5 ${m.color}`} />
+                        <span>{m.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {resolveError && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{resolveError}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setResolvingTx(null)}
+                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isResolving}
+                onClick={handleSaveResolvedMode}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition disabled:opacity-50 cursor-pointer"
+              >
+                {isResolving ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Save & Reconcile</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
