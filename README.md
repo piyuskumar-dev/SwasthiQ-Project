@@ -230,4 +230,16 @@ In accordance with healthcare financial standards (NABH / HIPAA / ISO 27001), cl
    - Every transaction row permanently records a UTC `created_at` timestamp in SQLite, establishing an unbroken mathematical chain of custody.
 4. **Dual-Perspective Clinical vs. Auditor Views**:
    - The AI Narrative screen provides a **Clinical View** with friendly business terminology for clinic staff, alongside an **Audit View** with raw database schema mapping for compliance officers and evaluators.
+5. **Closed-Loop Return Validation & Phantom Refund Prevention (Future Scope / Enterprise Hardening)**:
+   - **The Vulnerability**: In front-desk operations, a major fraud vector is rogue receptionists creating fictitious ("phantom") refund entries to siphon cash or trigger unauthorized UPI reversals.
+   - **Design Decision & Why Loose Name Matching is Insufficient**: Restricting returns merely by checking if a patient name exists in *today's* log introduces operational breakage, because:
+     1. Legitimate patients frequently return unused medications cross-day (e.g., returning medicines 2 days after purchase, as demonstrated in dataset `2026-07-25`).
+     2. Loose name strings are vulnerable to typographical variations ("Rohan Verma" vs. "Rohan V.").
+   - **Enterprise Roadmap**: In production enterprise deployments, returns are enforced via **Closed-Loop Invoice Referencing**:
+     - Every refund must link to a valid `original_bill_id` / `original_visit_id`.
+     - The system validates that the cumulative refund across line items does not exceed the net collected amount of the original invoice.
+     - Unopened drug inventory is automatically reconciled and restocked.
+6. **Dual-Authorization Workflow for Disbursals**:
+   - Cash and digital refunds exceeding a configurable threshold (e.g. ₹500) trigger a supervisor approval requirement (Admin OTP / biometric sign-off) before drawer balances can be decremented.
+
 

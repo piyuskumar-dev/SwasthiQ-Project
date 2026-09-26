@@ -251,6 +251,14 @@ export default function AddPaymentModal({
             </div>
           </div>
 
+          {/* Refund Anti-Fraud Audit Notice */}
+          {isRefund && (
+            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-900/60 text-[11px] text-rose-800 dark:text-rose-300 flex items-center gap-2 animate-in fade-in duration-150">
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
+              <span><strong>Anti-Fraud Audit Guardrail:</strong> Verify patient purchase history and original invoice receipt before disbursing return funds.</span>
+            </div>
+          )}
+
           {/* Row: Patient Name */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
